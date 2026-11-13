@@ -4,6 +4,11 @@ How to turn a **JZ0145 v40** USB 4G/WiFi dongle (Qualcomm MSM8916) into a small 
 
 Earlier guides cover the **v33** board. This repo records what it took to get **v40** working, including the step most guides skip and the approaches that failed.
 
+<p align="center">
+  <img src="images/dongle.jpg" width="45%" alt="JZ0145 v40 4G LTE USB dongle">
+  <img src="images/neofetch.png" width="50%" alt="neofetch on the dongle: Debian 12, kernel 6.6.0-msm8916">
+</p>
+
 > [!WARNING]
 > This replaces the bootloader and partition table. It can leave the dongle unbootable until you restore it through EDL. Back up first and keep the backup.
 
@@ -17,12 +22,18 @@ Earlier guides cover the **v33** board. This repo records what it took to get **
 
 | | |
 |---|---|
-| PCB marking | JZ0145 v40 |
+| PCB marking | `JZ0145_V40_20260509` (label `JZ01-45V40`) |
 | SoC | Qualcomm MSM8916 (Snapdragon 410), secure boot **off** |
-| RAM / eMMC | 512 MB / 3.7 GB |
+| RAM / eMMC | 512 MB / 3.7 GB (SK hynix package next to the SoC) |
 | Stock OS | Android 4.4.4 (KTU84P), web UI `UFI-JZ_V3.0.0` at 192.168.100.1 (admin/admin) |
 | Modem firmware | MPSS.DPM.2.0.c12 |
 | EDL | hold the reset button while plugging in |
+
+| Label side (reset button, SIM slot) | SoC side |
+|---|---|
+| ![JZ0145 v40 board, label side](images/board-label-side.jpg) | ![JZ0145 v40 board, MSM8916 side](images/board-soc-side.jpg) |
+
+The reset button used for EDL is the small tactile switch next to the SIM slot. The sticker's IMEI/serial area is blacked out in the photo.
 
 ## Result
 
