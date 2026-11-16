@@ -1,0 +1,32 @@
+#!/bin/sh
+# CDC-ECM USB gadget (works on macOS/Linux; replaces the RNDIS scheme)
+G=/sys/kernel/config/usb_gadget/ecm
+case "$1" in
+  start)
+    modprobe libcomposite
+    [ -d "$G" ] && exit 0
+    mkdir -p "$G" && cd "$G" || exit 1
+    echo 0x1d6b > idVendor          # Linux Foundation
+    echo 0x0104 > idProduct         # Multifunction Composite Gadget
+    mkdir -p strings/0x409
+    echo OpenStick > strings/0x409/manufacturer
+    echo "JZ0145 ECM" > strings/0x409/product
+    echo 0123456789 > strings/0x409/serialnumber
+    mkdir -p configs/c.1/strings/0x409
+    echo ECM > configs/c.1/strings/0x409/configuration
+    mkdir -p functions/ecm.usb0
+    echo 02:4f:53:00:00:01 > functions/ecm.usb0/dev_addr
+    echo 02:4f:53:00:00:02 > functions/ecm.usb0/host_addr
+    ln -s functions/ecm.usb0 configs/c.1/
+    ls /sys/class/udc | head -n1 > UDC
+    ;;
+  stop)
+    [ -d "$G" ] || exit 0
+    cd "$G" || exit 1
+    echo "" > UDC 2>/dev/null
+    rm -f configs/c.1/ecm.usb0
+    rmdir configs/c.1/strings/0x409 configs/c.1 functions/ecm.usb0 strings/0x409 2>/dev/null
+    cd / && rmdir "$G"
+    ;;
+  *) echo "usage: $0 start|stop"; exit 1 ;;
+esac

@@ -45,8 +45,9 @@ Tested on one v40 board:
 | Device tree | `JZ01-45-V33 4G Modem Stick` |
 | WiFi AP | ✅ `Openstick` / `openstick`, 192.168.4.1 |
 | LEDs | ✅ `red:power`, `green:wlan`, `blue:wan` |
-| Modem | ✅ detected by ModemManager with the original IMEI. SIM not tested yet. |
-| USB network | ⚠️ the gadget is RNDIS: works on Linux and Windows, no driver on macOS |
+| Modem | ✅ detected by ModemManager with the original IMEI |
+| SIM / 4G | ✅ after the [SIM GPIO fix](#sim-fix-v40) below. LTE on a Thai carrier at about 11 Mbit/s down and 7.6 Mbit/s up, shared to the WiFi AP. |
+| USB network | ⚠️ the default gadget is RNDIS: works on Linux and Windows, no driver on macOS. See [USB networking on macOS](#usb-networking-on-macos). |
 
 ## Requirements
 
@@ -58,7 +59,7 @@ Tested on one v40 board:
 ## Install
 
 ```bash
-git clone https://github.com/yeet2077/jz0145-v40-openstick
+git clone https://github.com/yeet2042/jz0145-v40-openstick
 cd jz0145-v40-openstick
 ./flash.sh            # all stages
 ./flash.sh --help     # or run stage by stage
@@ -79,6 +80,56 @@ After about a minute, join WiFi **`Openstick`** (password `openstick`):
 ```bash
 ssh user@192.168.4.1        # password: 1  (change it!)
 sudo resize2fs /dev/disk/by-partlabel/rootfs   # use the whole eMMC
+```
+
+## SIM fix (v40)
+
+With the v33 device tree, the modem on v40 reports the SIM as missing (`qmicli --uim-get-card-status` shows `Card state: 'absent'`, and ModemManager shows `sim-missing`). The SIM switch pins are wired differently on v40. The stock Android device tree (`gpio-leds` nodes `sim1_switch_gpio`, `sim2_switch_gpio`, `sim3_switch_gpio`, `sim_hotdet_gpio`) sets:
+
+| GPIO | stock v40 | v33 dtb |
+|---|---|---|
+| 1 | low | high |
+| 22 | **high** | low |
+| 23 | **high** | low |
+| 52 | **high** | not set |
+
+[`extras/jz-sim.service`](extras/jz-sim.service) applies the stock values at boot and power-cycles the SIM so the modem picks it up. It needs `gpiod` and `libqmi-utils` on the dongle:
+
+```bash
+sudo apt install gpiod libqmi-utils
+sudo cp jz-sim.service /etc/systemd/system/
+sudo systemctl enable --now jz-sim.service
+sudo systemctl restart ModemManager
+```
+
+Then set the APN on the `lte` connection that OpenStick ships. Some carriers reject plain `ipv4`, so keep IPv6 enabled (`ipv4v6`):
+
+```bash
+sudo nmcli con mod lte gsm.apn internet ipv6.method auto ipv4.route-metric 30
+sudo nmcli con up lte
+```
+
+Notes:
+- Don't make the service depend on `dev-wwan0qmi0.device`. That unit never becomes active, and boot stalls about 90 s waiting for it. The service polls for `/dev/wwan0qmi0` instead.
+- A proper fix would be a v40 device tree with these pin states. Patches welcome.
+
+## USB networking on macOS
+
+macOS has no RNDIS driver. [`extras/usb-ecm-gadget`](extras/usb-ecm-gadget) switches the USB gadget to CDC-ECM, which macOS supports natively. Install it as `/usr/local/sbin/usb-ecm-gadget` (mode 755), plus this override at `/etc/systemd/system/usb-gadget.service.d/ecm.conf`:
+
+```ini
+[Service]
+Type=oneshot
+ExecStart=
+ExecStart=/usr/local/sbin/usb-ecm-gadget start
+ExecStop=
+ExecStop=/usr/local/sbin/usb-ecm-gadget stop
+```
+
+Set the dongle's `usb` connection to DHCP, so the Mac's Internet Sharing (enable it for "JZ0145 ECM") can hand it an address. `192.168.5.1` is a static fallback address:
+
+```bash
+sudo nmcli con mod usb ipv4.method auto ipv4.addresses 192.168.5.1/24 ipv4.route-metric 50 ipv4.dhcp-timeout infinity
 ```
 
 ## Gotchas found along the way

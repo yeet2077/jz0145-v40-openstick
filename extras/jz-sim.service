@@ -1,0 +1,13 @@
+[Unit]
+Description=JZ0145 v40 SIM switch GPIOs (stock values: gpio1=0 22=1 23=1 52=1)
+Before=ModemManager.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 120); do [ -e /dev/wwan0qmi0 ] && exit 0; sleep 0.5; done; exit 0'
+ExecStart=/usr/bin/gpioset --mode=signal gpiochip0 1=0 22=1 23=1 52=1
+ExecStartPost=/bin/sh -c 'sleep 1; qmicli -d /dev/wwan0qmi0 --uim-sim-power-off=1; sleep 1; qmicli -d /dev/wwan0qmi0 --uim-sim-power-on=1; sleep 3'
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
